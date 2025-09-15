@@ -29,6 +29,8 @@ print("Loading GTF into memory...")
 gtf = pd.read_feather(GTF_FILE)
 print("GTF loaded.")
 app = Flask(__name__)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 # You should store your AlphaGenome API key as an environment variable for safety
 ALPHAGENOME_API_KEY = os.getenv("ALPHAGENOME_API_KEY")
