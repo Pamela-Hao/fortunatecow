@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+    <title>AlphaGenome Variant Prediction</title>
+</head>
+<body>
+    <h1>Variant Prediction with AlphaGenome</h1>
+    <form method="POST">
+        <div>
+            <label>Chromosome:</label>
+            <input type="text" name="chromosome" />
+        </div>
+        <div>
+            <label>Position (hg38):</label>
+            <input type="number" name="position" />
+        </div>
+        <div>
+            <label>Reference allele:</label>
+            <input type="text" name="ref" />
+
+            <label>Alternate allele:</label>
+            <input type="text" name="alt" />
+        </div>
+        <div>
+            <label for="window_size">Window size (bp):</label>
+            <input type="number" name="window_size" id="window_size" placeholder="Default: 32768 (2^15)" />
+        </div>
+        <div>
+            <label for="output_type">Output type:</label>
+            <select name="output_type" id="output_type" required>
+                <option value="DNASE">DNASE</option>
+                <option value="RNA_SEQ">RNA_SEQ</option>
+                <option value="CAGE">CAGE</option>
+                <option value="ATAC">ATAC</option>
+                <option value="CHIP_HISTONE">CHIP_HISTONE</option>
+                <option value="CHIP_TF">CHIP_TF</option>
+                <option value="SPLICE_SITES">SPLICE_SITES</option>
+                <option value="SPLICE_SITE_USAGE">SPLICE_SITE_USAGE</option>
+                <option value="SPLICE_JUNCTIONS">SPLICE_JUNCTIONS</option>
+                <option value="CONTACT_MAPS">CONTACT_MAPS</option>
+                <option value="PROCAP">PROCAP</option>
+        <!-- Add other valid output types if needed -->
+            </select>
+        </div>
+         <!-- Collapsible 'More options' section -->
+
+        <button type="button" onclick="toggleMoreOptions()" style="margin-top:10px;">
+            ▼ More options
+        </button>
+
+        <div id="more-options" style="display:none; margin-top:10px; border-left:2px solid #ccc; padding-left:10px;">
+            <div>
+                <label for="ontology_terms">Ontology terms (comma-separated):</label>
+                <input type="text" name="ontology_terms" id="ontology_terms" placeholder="UBERON:0000955" />
+                <p style="font-size: small; color: gray;">Default: UBERON:0000955 (brain)</p>
+            </div>
+        </div>
+
+        <!-- Add more advanced parameters here -->
+        <div style="margin-top:10px;">
+            <button type="submit">Submit</button>
+        </div>
+
+    </form>
+    <script>
+    function toggleMoreOptions() {
+        const panel = document.getElementById("more-options");
+        const button = event.target;
+        if (panel.style.display === "none") {
+            panel.style.display = "block";
+            button.textContent = "More Options ▲";
+        } else {
+            panel.style.display = "none";
+            button.textContent = "More Options ▼";
+        }
+    }
+    </script>
+
+    {% if prediction %}
+        <h2>Prediction Results:</h2>
+        <pre>{{ prediction | tojson(indent=2) }}</pre>
+    {% endif %}
+    {% if plot_url %}
+        <h2>Variant Plot:</h2>
+        <img src="data:image/png;base64,{{ plot_url }}" alt="Variant plot"/>
+    {% endif %}
+    {% if error %}
+        <p style="color:red;">{{ error }}</p>
+    {% endif %}
+</body>
+</html>
