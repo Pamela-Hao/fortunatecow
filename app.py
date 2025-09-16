@@ -11,23 +11,9 @@ from alphagenome.models import variant_scorers
 from alphagenome.visualization import plot_components
 import matplotlib.pyplot as plt
 import pandas as pd
-GTF_FILE = "gencode.v46.annotation.gtf.gz.feather"
-
-if not os.path.exists(GTF_FILE):
-    import requests
-    url = "https://storage.googleapis.com/alphagenome/reference/gencode/hg38/gencode.v46.annotation.gtf.gz.feather"
-    print("Downloading GTF file...")
-    r = requests.get(url, stream=True)
-    r.raise_for_status()
-    with open(GTF_FILE, "wb") as f:
-        for chunk in r.iter_content(chunk_size=8192):
-            f.write(chunk)
-    print("Download complete!")
-
-# Load it once
-print("Loading GTF into memory...")
-gtf = pd.read_feather(GTF_FILE)
-print("GTF loaded.")
+url = "https://storage.googleapis.com/alphagenome/reference/gencode/hg38/gencode.v46.annotation.gtf.gz.feather"
+print("Loading GTF from cloud...")
+gtf = pd.read_feather(url)
 app = Flask(__name__)
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
