@@ -5,6 +5,7 @@ import io
 import base64
 import pyarrow.feather as feather
 import pyarrow.compute as pc
+import pyarrow as pa
 from alphagenome.data import gene_annotation
 from alphagenome.data import genome
 from alphagenome.data import transcript as transcript_utils
@@ -34,8 +35,9 @@ def query_gtf_region(chrom, start, end):
     Yields Pandas DataFrames for rows matching the chromosome and interval.
     Reads Feather file in batches to avoid loading everything into memory.
     """
-    for batch in feather.read_table(LOCAL_GTF, use_threads=True).to_batches():
-        table = feather.Table.from_batches([batch])
+    reader = feather.FeatherReader(LOCAL_GTF)
+    for batch in reader.iter_batches():
+        table = pa.Table.from_batches([batch])
         mask = pc.and_(
             pc.equal(table['Chromosome'], chrom),
             pc.less_equal(table['Start'], end),
