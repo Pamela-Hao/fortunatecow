@@ -32,24 +32,25 @@ app = Flask(__name__)
 # You should store your AlphaGenome API key as an environment variable for safety
 ALPHAGENOME_API_KEY = os.getenv("ALPHAGENOME_API_KEY")
 model = dna_client.create(ALPHAGENOME_API_KEY)
-def query_gtf_region(chrom, start, end):
+def query_gtf_region(chrom, start, end, batch_size = 5000):
     dataset = ds.dataset(LOCAL_GTF, format="feather")
 
-    # Define filter expression
     filter_expr = (
         (ds.field("Chromosome") == chrom) &
         (ds.field("Start") <= end) &
         (ds.field("End") >= start)
     )
 
-    # Only loads rows matching the filter
-    table = dataset.to_table(filter=filter_expr)
+    # Build a scanner directly
+    scanner = dataset.scanner(
+        filter=filter_expr,
+        columns = ['Chromosome', 'Source', 'Feature', 'Start', 'End', 'Score', 'Strand', 'Frame', 'gene_id', 'gene_type', 'gene_name', 'level', 'tag', 'transcript_id', 'transcript_type', 'transcript_name', 'transcript_support_level', 'exon_number', 'exon_id', 'ont'],
+        batch_size=batch_size,
+        use_threads=True
+    )
 
-    if table.num_rows == 0:
-        return None
-
-    return table.to_pandas()
-
+    for batch in scanner.to_batches():
+        yield batch.to_pandas()
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -73,7 +74,12 @@ def index():
             pos = int(pos)
             start = pos - window_size // 2
             end = pos + window_size // 2
-            gtf_region = query_gtf_region(chrom, start, end)
+            region_dfs = list(query_gtf_region(chrom, start, end))
+            if not region_dfs:
+                error = "No transcripts found in the selected interval."
+                return render_template("index.html", error=error)
+
+            gtf_region = pd.concat(region_dfs, ignore_index=True)
             if gtf_region is None:
                 error = "No transcripts found in the selected interval."
                 return render_template("index.html", error=error)
