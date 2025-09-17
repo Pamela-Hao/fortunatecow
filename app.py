@@ -4,7 +4,7 @@ import os
 import io
 import base64
 import pyarrow.feather as feather
-import pyarrow as pa
+import pyarrow.compute as pc
 from alphagenome.data import gene_annotation
 from alphagenome.data import genome
 from alphagenome.data import transcript as transcript_utils
@@ -22,12 +22,28 @@ if not os.path.exists(LOCAL_GTF):
         for chunk in resp.iter_content(chunk_size=1024*1024):
             f.write(chunk)
     print("Download complete.")
+
 app = Flask(__name__)
 
 
 # You should store your AlphaGenome API key as an environment variable for safety
 ALPHAGENOME_API_KEY = os.getenv("ALPHAGENOME_API_KEY")
 model = dna_client.create(ALPHAGENOME_API_KEY)
+def query_gtf_region(chrom, start, end):
+    """
+    Yields Pandas DataFrames for rows matching the chromosome and interval.
+    Reads Feather file in batches to avoid loading everything into memory.
+    """
+    for batch in feather.read_table(LOCAL_GTF, use_threads=True).to_batches():
+        table = feather.Table.from_batches([batch])
+        mask = pc.and_(
+            pc.equal(table['Chromosome'], chrom),
+            pc.less_equal(table['Start'], end),
+            pc.greater_equal(table['End'], start)
+        )
+        region = table.filter(mask)
+        if len(region) > 0:
+            yield region.to_pandas()
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -50,7 +66,14 @@ def index():
             error = "Please fill in all fields."
         else:
             pos = int(pos)
-            
+            start = pos - window_size // 2
+            end = pos + window_size // 2
+            region_dfs = list(query_gtf_region(chrom, start, end))
+            if not region_dfs:
+                error = "No transcripts found in the selected interval."
+                return render_template("index.html", error=error)
+
+            gtf_region = pd.concat(region_dfs, ignore_index=True)
                 # Define variant and interval
             variant_obj = genome.Variant(
                 chromosome=chrom,
@@ -63,20 +86,6 @@ def index():
 
 
             columns = ['Chromosome', 'Source', 'Feature', 'Start', 'End', 'Score', 'Strand', 'Frame', 'gene_id', 'gene_type', 'gene_name', 'level', 'tag', 'transcript_id', 'transcript_type', 'transcript_name', 'transcript_support_level', 'havana_transcript', 'exon_number', 'exon_id', 'hgnc_id', 'havana_gene', 'ont', 'protein_id', 'ccdsid', 'artif_dupl']
-            table = feather.read_table(LOCAL_GTF)
-            chrom_table = table.filter(pa.compute.equal(table['Chromosome'], chrom))
-            start = pos - window_size // 2
-            end = pos + window_size // 2
-
-            interval_mask = pa.compute.and_(
-                pa.compute.less_equal(chrom_table['Start'], end),
-                pa.compute.greater_equal(chrom_table['End'], start)
-            )
-            region_table = chrom_table.filter(interval_mask)
-            gtf_region = region_table.to_pandas()
-            if gtf_region.empty:
-                error = "No transcripts found in the selected interval."
-                return render_template("index.html", error=error)
             requested_outputs = [getattr(dna_client.OutputType, output_type)]
                 # Predict
             outputs = model.predict_variant(
