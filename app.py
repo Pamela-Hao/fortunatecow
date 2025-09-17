@@ -42,8 +42,10 @@ def query_gtf_region(chrom, start, end):
             batch = reader.get_batch(i)
             table = pa.Table.from_batches([batch])
             mask = pc.and_(
+                pc.and_(
                 pc.equal(table['Chromosome'], chrom),
                 pc.less_equal(table['Start'], end),
+                ),
                 pc.greater_equal(table['End'], start)
             )
             region = table.filter(mask)
