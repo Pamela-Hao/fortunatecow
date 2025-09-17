@@ -4,6 +4,7 @@ import os
 import io
 import base64
 import pyarrow.feather as feather
+import pyarrow.ipc as ipc
 import pyarrow.compute as pc
 import pyarrow as pa
 from alphagenome.data import gene_annotation
@@ -35,17 +36,19 @@ def query_gtf_region(chrom, start, end):
     Yields Pandas DataFrames for rows matching the chromosome and interval.
     Reads Feather file in batches to avoid loading everything into memory.
     """
-    reader = feather.FeatherReader(LOCAL_GTF)
-    for batch in reader.iter_batches():
-        table = pa.Table.from_batches([batch])
-        mask = pc.and_(
-            pc.equal(table['Chromosome'], chrom),
-            pc.less_equal(table['Start'], end),
-            pc.greater_equal(table['End'], start)
-        )
-        region = table.filter(mask)
-        if len(region) > 0:
-            yield region.to_pandas()
+    with pa.memory_map(LOCAL_GTF, "r") as source:
+        reader = ipc.RecordBatchFileReader(source)
+        for i in range(reader.num_record_batches):
+            batch = reader.get_batch(i)
+            table = pa.Table.from_batches([batch])
+            mask = pc.and_(
+                pc.equal(table['Chromosome'], chrom),
+                pc.less_equal(table['Start'], end),
+                pc.greater_equal(table['End'], start)
+            )
+            region = table.filter(mask)
+            if len(region) > 0:
+                yield region.to_pandas()
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -130,6 +133,6 @@ def index():
                 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-    #app.run(debug=True)
+    #app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=True)
 
