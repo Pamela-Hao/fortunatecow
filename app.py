@@ -7,6 +7,7 @@ import pyarrow.feather as feather
 import pyarrow.ipc as ipc
 import pyarrow.compute as pc
 import pyarrow as pa
+import pyarrow.dataset as ds
 from alphagenome.data import gene_annotation
 from alphagenome.data import genome
 from alphagenome.data import transcript as transcript_utils
@@ -32,25 +33,22 @@ app = Flask(__name__)
 ALPHAGENOME_API_KEY = os.getenv("ALPHAGENOME_API_KEY")
 model = dna_client.create(ALPHAGENOME_API_KEY)
 def query_gtf_region(chrom, start, end):
-    """
-    Yields Pandas DataFrames for rows matching the chromosome and interval.
-    Reads Feather file in batches to avoid loading everything into memory.
-    """
-    with pa.memory_map(LOCAL_GTF, "r") as source:
-        reader = ipc.RecordBatchFileReader(source)
-        for i in range(reader.num_record_batches):
-            batch = reader.get_batch(i)
-            table = pa.Table.from_batches([batch])
-            mask = pc.and_(
-                pc.and_(
-                pc.equal(table['Chromosome'], chrom),
-                pc.less_equal(table['Start'], end),
-                ),
-                pc.greater_equal(table['End'], start)
-            )
-            region = table.filter(mask)
-            if len(region) > 0:
-                yield region.to_pandas()
+    dataset = ds.dataset(LOCAL_GTF, format="feather")
+
+    # Define filter expression
+    filter_expr = (
+        (ds.field("Chromosome") == chrom) &
+        (ds.field("Start") <= end) &
+        (ds.field("End") >= start)
+    )
+
+    # Only loads rows matching the filter
+    table = dataset.to_table(filter=filter_expr)
+
+    if table.num_rows == 0:
+        return None
+
+    return table.to_pandas()
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -75,12 +73,10 @@ def index():
             pos = int(pos)
             start = pos - window_size // 2
             end = pos + window_size // 2
-            region_dfs = list(query_gtf_region(chrom, start, end))
-            if not region_dfs:
+            gtf_region = query_gtf_region(chrom, start, end)
+            if gtf_region is None:
                 error = "No transcripts found in the selected interval."
                 return render_template("index.html", error=error)
-
-            gtf_region = pd.concat(region_dfs, ignore_index=True)
                 # Define variant and interval
             variant_obj = genome.Variant(
                 chromosome=chrom,
