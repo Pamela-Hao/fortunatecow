@@ -64,16 +64,13 @@ def index():
             end = pos + window_size // 2
             chr_file = get_chr_file(chrom)
             dataset = ds.dataset(chr_file, format="feather")
-            table = dataset.to_table()
-            mask = pc.and_(
-            pc.less_equal(table["Start"], end),
-            pc.greater_equal(table["End"], start)
-            )
-            filtered = table.filter(mask)
-            if filtered.num_rows == 0:
-                error = "No transcripts found in the selected interval."
-                return render_template("index.html", error=error)
-            gtf_region = filtered.to_pandas()
+            for batch in dataset.to_batches():
+                table = pa.Table.from_batches([batch])
+                mask = pc.and_(pc.less_equal(table["Start"], end), pc.greater_equal(table["End"], start))
+                filtered = table.filter(mask)
+                if filtered.num_rows > 0:
+                    gtf_region = filtered.to_pandas()
+                    break
                 # Define variant and interval
             variant_obj = genome.Variant(
                 chromosome=chrom,
