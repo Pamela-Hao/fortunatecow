@@ -16,7 +16,7 @@ from alphagenome.models import variant_scorers
 from alphagenome.visualization import plot_components
 import matplotlib.pyplot as plt
 import pandas as pd
-BASE_URL = "https://github.com/<username>/<repo>/releases/download/v1.0/"
+BASE_URL = "https://github.com/Pamela-Hao/fortunatecow/releases/download/v1.0/"
 LOCAL_DIR = "gencode_split"
 def get_chr_file(chrom):
     chrom = chrom.strip()            # remove spaces
