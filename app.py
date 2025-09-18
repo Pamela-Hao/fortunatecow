@@ -16,15 +16,22 @@ from alphagenome.models import variant_scorers
 from alphagenome.visualization import plot_components
 import matplotlib.pyplot as plt
 import pandas as pd
-GTF_URL = "https://storage.googleapis.com/alphagenome/reference/gencode/hg38/gencode.v46.annotation.gtf.gz.feather"
-LOCAL_GTF = "gencode.v46.annotation.gtf.feather"
-if not os.path.exists(LOCAL_GTF):
-    print("Downloading GTF Feather file...")
-    resp = requests.get(GTF_URL, stream=True)
-    with open(LOCAL_GTF, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=1024*1024):
-            f.write(chunk)
-    print("Download complete.")
+BASE_URL = "https://github.com/<username>/<repo>/releases/download/v1.0/"
+LOCAL_DIR = "gencode_split"
+def get_chr_file(chrom):
+    chrom = chrom.strip()            # remove spaces
+    if not chrom.startswith("chr"):
+        chrom = "chr" + chrom
+    local_path = os.path.join(LOCAL_DIR, f"{chrom}.feather")
+    if not os.path.exists(local_path):
+        url = f"{BASE_URL}/{chrom}.feather"
+        resp = requests.get(url, stream=True)
+        resp.raise_for_status()
+        with open(local_path, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=1024*1024):
+                if chunk:
+                    fh.write(chunk)
+    return local_path
 
 app = Flask(__name__)
 
@@ -32,25 +39,6 @@ app = Flask(__name__)
 # You should store your AlphaGenome API key as an environment variable for safety
 ALPHAGENOME_API_KEY = os.getenv("ALPHAGENOME_API_KEY")
 model = dna_client.create(ALPHAGENOME_API_KEY)
-def query_gtf_region(chrom, start, end, batch_size = 5000):
-    dataset = ds.dataset(LOCAL_GTF, format="feather")
-
-    filter_expr = (
-        (ds.field("Chromosome") == chrom) &
-        (ds.field("Start") <= end) &
-        (ds.field("End") >= start)
-    )
-
-    # Build a scanner directly
-    scanner = dataset.scanner(
-        filter=filter_expr,
-        columns = ['Chromosome', 'Source', 'Feature', 'Start', 'End', 'Score', 'Strand', 'Frame', 'gene_id', 'gene_type', 'gene_name', 'level', 'tag', 'transcript_id', 'transcript_type', 'transcript_name', 'transcript_support_level', 'exon_number', 'exon_id', 'ont'],
-        batch_size=batch_size,
-        use_threads=True
-    )
-
-    for batch in scanner.to_batches():
-        yield batch.to_pandas()
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -59,7 +47,7 @@ def index():
     error = None
 
     if request.method == "POST":
-        chrom = request.form.get("chromosome")
+        chrom = request.form.get("chromosome", "").strip()
         pos = request.form.get("position")
         ref = request.form.get("ref")
         alt = request.form.get("alt")
@@ -74,15 +62,18 @@ def index():
             pos = int(pos)
             start = pos - window_size // 2
             end = pos + window_size // 2
-            region_dfs = list(query_gtf_region(chrom, start, end))
-            if not region_dfs:
+            chr_file = get_chr_file(chrom)
+            dataset = ds.dataset(chr_file, format="feather")
+            table = dataset.to_table()
+            mask = pc.and_(
+            pc.less_equal(table["Start"], end),
+            pc.greater_equal(table["End"], start)
+            )
+            filtered = table.filter(mask)
+            if filtered.num_rows == 0:
                 error = "No transcripts found in the selected interval."
                 return render_template("index.html", error=error)
-
-            gtf_region = pd.concat(region_dfs, ignore_index=True)
-            if gtf_region is None:
-                error = "No transcripts found in the selected interval."
-                return render_template("index.html", error=error)
+            gtf_region = filtered.to_pandas()
                 # Define variant and interval
             variant_obj = genome.Variant(
                 chromosome=chrom,
@@ -137,6 +128,6 @@ def index():
                 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-    #app.run(debug=True)
+    #app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=True)
 
