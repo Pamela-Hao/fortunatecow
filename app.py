@@ -22,6 +22,7 @@ def get_chr_file(chrom):
     chrom = chrom.strip()            # remove spaces
     if not chrom.startswith("chr"):
         chrom = "chr" + chrom
+    os.makedirs(LOCAL_DIR, exist_ok=True)
     local_path = os.path.join(LOCAL_DIR, f"{chrom}.feather")
     if not os.path.exists(local_path):
         url = f"{BASE_URL}/{chrom}.feather"
@@ -125,6 +126,6 @@ def index():
                 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-    #app.run(debug=True)
+    #app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=True)
 
