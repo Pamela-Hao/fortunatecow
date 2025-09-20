@@ -7,15 +7,16 @@ app = 'alphagenome-green-frog-72'
 primary_region = 'bos'
 
 [experimental]
+  memory = "1gb"
+  cpu = "1"
 
 [build]
   dockerfile = "Dockerfile"
 
 [deploy]
-  release_command = 'python manage.py migrate'
 
 [env]
-  ALPHAGENOME_API_KEY = 'your_api_key_here'
+  ALPHAGENOME_API_KEY = 'AIzaSyC66joDkyeHyqMXIGjSYcpUK8Midtn1JeM'
   FLASK_ENV = 'production'
   PORT = '8080'
 
