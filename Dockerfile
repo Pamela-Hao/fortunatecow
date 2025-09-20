@@ -9,7 +9,7 @@ LABEL fly_launch_runtime="flask"
 WORKDIR /app
 RUN apt-get update && apt-get install -y build-essential python3-dev libarrow-dev && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt 
+COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . .
