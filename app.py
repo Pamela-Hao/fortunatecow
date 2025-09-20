@@ -3,8 +3,6 @@ import requests
 import os
 import io
 import base64
-import pyarrow.feather as feather
-import pyarrow.ipc as ipc
 import pyarrow.compute as pc
 import pyarrow as pa
 import pyarrow.dataset as ds
@@ -12,10 +10,7 @@ from alphagenome.data import gene_annotation
 from alphagenome.data import genome
 from alphagenome.data import transcript as transcript_utils
 from alphagenome.models import dna_client
-from alphagenome.models import variant_scorers
 from alphagenome.visualization import plot_components
-import matplotlib.pyplot as plt
-import pandas as pd
 BASE_URL = "https://github.com/Pamela-Hao/fortunatecow/releases/download/v1.0/"
 LOCAL_DIR = "gencode_split"
 def get_chr_file(chrom):
@@ -56,22 +51,26 @@ def index():
         window_size = request.form.get("window_size", type=int) or 2**15
         ontology_terms_str = request.form.get("ontology_terms")
         ontology_terms = [term.strip() for term in ontology_terms_str.split(",")] if ontology_terms_str else ["UBERON:0000955"]
-
         if not chrom or not pos or not ref or not alt or not output_type:
             error = "Please fill in all fields."
         else:
+            gtf_region = None
             pos = int(pos)
             start = pos - window_size // 2
             end = pos + window_size // 2
             chr_file = get_chr_file(chrom)
             dataset = ds.dataset(chr_file, format="feather")
             for batch in dataset.to_batches():
-                table = pa.Table.from_batches([batch])
-                mask = pc.and_(pc.less_equal(table["Start"], end), pc.greater_equal(table["End"], start))
-                filtered = table.filter(mask)
+                mask = pc.and_(
+                pc.less_equal(batch["Start"], end),
+                pc.greater_equal(batch["End"], start)
+                )
+                filtered = batch.filter(mask)
                 if filtered.num_rows > 0:
                     gtf_region = filtered.to_pandas()
                     break
+            del batch, filtered, dataset
+            import gc; gc.collect()
                 # Define variant and interval
             variant_obj = genome.Variant(
                 chromosome=chrom,
@@ -81,7 +80,6 @@ def index():
                 )
             interval_obj = variant_obj.reference_interval.resize(dna_client.SEQUENCE_LENGTH_1MB)
                 # Convert output types to AlphaGenome OutputType objects
-
 
             columns = ['Chromosome', 'Source', 'Feature', 'Start', 'End', 'Score', 'Strand', 'Frame', 'gene_id', 'gene_type', 'gene_name', 'level', 'tag', 'transcript_id', 'transcript_type', 'transcript_name', 'transcript_support_level', 'havana_transcript', 'exon_number', 'exon_id', 'hgnc_id', 'havana_gene', 'ont', 'protein_id', 'ccdsid', 'artif_dupl']
             requested_outputs = [getattr(dna_client.OutputType, output_type)]
@@ -96,7 +94,6 @@ def index():
             gtf_transcripts = gene_annotation.filter_to_longest_transcript(gtf_transcripts)
             transcript_extractor = transcript_utils.TranscriptExtractor(gtf_transcripts)
             longest_transcripts = transcript_extractor.extract(interval_obj)
-
             ref_track = getattr(outputs.reference, output_type.lower())  # make sure casing matches attribute
             alt_track = getattr(outputs.alternate, output_type.lower())
             interval = variant_obj.reference_interval.resize(window_size)
@@ -120,7 +117,6 @@ def index():
             fig.savefig(img, format='png', bbox_inches='tight')
             img.seek(0)
             plot_url = base64.b64encode(img.getvalue()).decode()  # convert to base64 string
-
     return render_template("index.html", plot_url=plot_url, error=error)
 
                 
