@@ -1,7 +1,12 @@
 # flyctl launch added from .gitignore
 **\venv
-**\__pycache__
-**\*.pyc
+**\__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.feather
+*.gtf
 **\.DS_Store
 **\.env
 **\gencode.v46.annotation.gtf.feather

@@ -12,21 +12,16 @@ from alphagenome.data import transcript as transcript_utils
 from alphagenome.models import dna_client
 from alphagenome.visualization import plot_components
 BASE_URL = "https://github.com/Pamela-Hao/fortunatecow/releases/download/v1.0/"
-LOCAL_DIR = "gencode_split"
+LOCAL_DIR = "/app/gencode_split"
 def get_chr_file(chrom):
     chrom = chrom.strip()            # remove spaces
     if not chrom.startswith("chr"):
         chrom = "chr" + chrom
-    os.makedirs(LOCAL_DIR, exist_ok=True)
     local_path = os.path.join(LOCAL_DIR, f"{chrom}.feather")
     if not os.path.exists(local_path):
-        url = f"{BASE_URL}/{chrom}.feather"
-        resp = requests.get(url, stream=True)
-        resp.raise_for_status()
-        with open(local_path, "wb") as fh:
-            for chunk in resp.iter_content(chunk_size=1024*1024):
-                if chunk:
-                    fh.write(chunk)
+        raise FileNotFoundError(
+            f"File {local_path} not found. Make sure the volume is mounted and populated."
+        )
     return local_path
 
 app = Flask(__name__)

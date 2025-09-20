@@ -14,6 +14,7 @@ primary_region = 'bos'
   dockerfile = "Dockerfile"
 
 [deploy]
+  release_command = "python manage.py migrate"
 
 [env]
   ALPHAGENOME_API_KEY = 'AIzaSyC66joDkyeHyqMXIGjSYcpUK8Midtn1JeM'
@@ -21,7 +22,7 @@ primary_region = 'bos'
   PORT = '8080'
 
 [[mounts]]
-  source = 'data'
+  source = 'gencode_split'
   destination = '/app/gencode_split'
 
 [http_service]
