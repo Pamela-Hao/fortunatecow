@@ -21,9 +21,9 @@ primary_region = 'bos'
   FLASK_ENV = 'production'
   PORT = '8080'
 
-[[mounts]]
-  source = 'gencode_split'
-  destination = '/app/gencode_split'
+#[[mounts]]
+  #source = 'gencode_split'
+  #destination = '/app/gencode_split'
 
 [http_service]
   internal_port = 8080
