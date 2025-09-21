@@ -4,7 +4,6 @@ import os
 import io
 import base64
 import pyarrow.compute as pc
-import pyarrow as pa
 import pyarrow.dataset as ds
 from alphagenome.data import gene_annotation
 from alphagenome.data import genome
