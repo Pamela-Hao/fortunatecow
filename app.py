@@ -50,15 +50,22 @@ def index():
         alt = request.form.get("alt")
         output_type = request.form.get("output_type") 
         window_size = request.form.get("window_size", type=int) or 2**15
+        prediction_center = request.form.get("prediction_center", type=int) 
         ontology_terms_str = request.form.get("ontology_terms")
         ontology_terms = [term.strip() for term in ontology_terms_str.split(",")] if ontology_terms_str else ["UBERON:0000955"]
+        ref_color = request.form.get("ref_color")
+        figure_ref_color = ref_color if ref_color else "dimgrey"
+        alt_color = request.form.get("alt_color")
+        figure_alt_color = alt_color if alt_color else "red"
         if not chrom or not pos or not ref or not alt or not output_type:
             error = "Please fill in all fields."
         else:
             gtf_region = None
             pos = int(pos)
-            start = pos - window_size // 2
-            end = pos + window_size // 2
+            center_pos = prediction_center if prediction_center else pos
+            start = center_pos - window_size // 2
+            end = center_pos + window_size // 2
+            figure_interval = genome.Interval(chrom, int(start), int(end))
             chr_file = get_chr_file(chrom)
             dataset = ds.dataset(chr_file, format="feather")
             for batch in dataset.to_batches():
@@ -97,7 +104,6 @@ def index():
             longest_transcripts = transcript_extractor.extract(interval_obj)
             ref_track = getattr(outputs.reference, output_type.lower())  # make sure casing matches attribute
             alt_track = getattr(outputs.alternate, output_type.lower())
-            interval = variant_obj.reference_interval.resize(window_size)
             fig = plot_components.plot(
                 [
                     plot_components.TranscriptAnnotation(longest_transcripts),
@@ -106,10 +112,10 @@ def index():
                             'REF': ref_track,
                             'ALT': alt_track
                         },
-                        colors={'REF': 'dimgrey', 'ALT': 'red'},
+                        colors={'REF': figure_ref_color, 'ALT': figure_alt_color},
                     ),
                 ],
-                interval=interval,
+                interval=figure_interval,
                 annotations=[plot_components.VariantAnnotation([variant_obj], alpha=0.8)],
             )
             print("Figure created")

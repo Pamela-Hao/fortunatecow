@@ -51,8 +51,19 @@
         <div id="more-options" style="display:none; margin-top:10px; border-left:2px solid #ccc; padding-left:10px;">
             <div>
                 <label for="ontology_terms">Ontology terms (comma-separated):</label>
-                <input type="text" name="ontology_terms" id="ontology_terms" placeholder="UBERON:0000955" />
-                <p style="font-size: small; color: gray;">Default: UBERON:0000955 (brain)</p>
+                <input type="text" name="ontology_terms" id="ontology_terms" placeholder="Default: UBERON:0000955 (brain)" />
+            </div>
+            <div>
+                <label for="prediction_center">Prediction center:</label>
+                <input type="number" name="prediction_center" id="prediction_center" placeholder="Default: Variant position"/>
+            </div>
+            <div>
+                <label for = "ref_color">Ref color:</label>
+                <input type="text" name="ref_color" id ="ref_color" placeholder="Default: dimgrey"/>
+            </div>
+            <div>
+                <label for = "alt_color">Alt color:</label>
+                <input type ="text" name="alt_color" id = "alt_color" placeholder="Default: red"/>
             </div>
         </div>
 
