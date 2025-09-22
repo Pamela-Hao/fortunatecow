@@ -5,9 +5,11 @@ import io
 import base64
 import pyarrow.compute as pc
 import pyarrow.dataset as ds
-from alphagenome.data import gene_annotation
+import pandas as pd
 from alphagenome.data import genome
+from alphagenome.data.transcript import Transcript
 from alphagenome.data import transcript as transcript_utils
+from alphagenome.data import gene_annotation
 from alphagenome.models import dna_client
 from alphagenome.visualization import plot_components
 BASE_URL = "https://github.com/Pamela-Hao/fortunatecow/releases/download/v1.0/"
@@ -65,6 +67,7 @@ def index():
             start = center_pos - window_size // 2
             end = center_pos + window_size // 2
             figure_interval = genome.Interval(chrom, int(start), int(end))
+            gtf_region = None
             chr_file = get_chr_file(chrom)
             dataset = ds.dataset(chr_file, format="feather")
             for batch in dataset.to_batches():
@@ -97,26 +100,64 @@ def index():
                 requested_outputs=requested_outputs,
                 ontology_terms = ontology_terms
                 )
-            gtf_transcripts = gene_annotation.filter_protein_coding(gtf_region)
-            gtf_transcripts = gene_annotation.filter_to_longest_transcript(gtf_transcripts)
-            transcript_extractor = transcript_utils.TranscriptExtractor(gtf_transcripts)
-            longest_transcripts = transcript_extractor.extract(interval_obj)
+            plot_items = []
+            longest_transcripts = None
+            if gtf_region is not None and not gtf_region.empty:
+                gtf_transcripts = gene_annotation.filter_protein_coding(gtf_region)
+                if not gtf_transcripts.empty and gtf_transcripts['Feature'].str.contains('exon').any():
+                    gtf_transcripts = gene_annotation.filter_to_longest_transcript(gtf_transcripts)
+                    transcript_extractor = transcript_utils.TranscriptExtractor(gtf_transcripts)
+                    longest_transcripts = transcript_extractor.extract(figure_interval)
+                    plot_items.append(plot_components.TranscriptAnnotation(longest_transcripts))
+                    exons_exist = True
+                else:
+                    exons_exist = False
+                    gene_metadata = gtf_transcripts[['gene_name', 'Start', 'End', 'Strand']].drop_duplicates(subset = 'gene_name')
+
             ref_track = getattr(outputs.reference, output_type.lower())  # make sure casing matches attribute
             alt_track = getattr(outputs.alternate, output_type.lower())
+            
+
+            plot_items.append(
+            plot_components.OverlaidTracks(
+            tdata={'REF': ref_track, 'ALT': alt_track},
+            colors={'REF': figure_ref_color, 'ALT': figure_alt_color}
+            )
+            )
             fig = plot_components.plot(
-                [
-                    plot_components.TranscriptAnnotation(longest_transcripts),
-                    plot_components.OverlaidTracks(
-                        tdata={
-                            'REF': ref_track,
-                            'ALT': alt_track
-                        },
-                        colors={'REF': figure_ref_color, 'ALT': figure_alt_color},
-                    ),
-                ],
+                plot_items,
                 interval=figure_interval,
                 annotations=[plot_components.VariantAnnotation([variant_obj], alpha=0.8)],
             )
+            if not exons_exist and gtf_region is not None and not gtf_region.empty:
+                ax = fig.axes[0]  # assume first axis contains the track plot
+                x_min, x_max = ax.get_xlim()
+                y_min, y_max = ax.get_ylim()
+                y_offset = 0.05 * (y_max - y_min)
+                y_arrow = y_max + y_offset
+                for _, row in gene_metadata.iterrows():
+                    start = max(row['Start'], x_min)
+                    end = min(row['End'], x_max)
+                    if start >= end:
+                        continue
+                    y_frac = 1.0       # y position in axes fraction
+                    text_offset = -5
+                    if row['Strand'] == '+':
+                        ax.annotate('',
+                                    xy=(end, 1.0), xytext=(start, 1.0),
+                                    arrowprops=dict(arrowstyle='-|>', color='black', lw=1.5),
+                                    xycoords=('data', 'axes fraction'))  # y in fraction of axis
+                        ax.text(start, y_frac, row['gene_name'],
+                                ha='right', va='bottom', fontsize=8,
+                                transform=ax.get_xaxis_transform())
+                    else:
+                        ax.annotate('',
+                                    xy=(start, 1.0), xytext=(end, 1.0),
+                                    arrowprops=dict(arrowstyle='-|>', color='black', lw=1.5),
+                                    xycoords=('data', 'axes fraction'))
+                        ax.text(start, y_frac, row['gene_name'],
+                                ha='right', va='bottom', fontsize=8,
+                                transform=ax.get_xaxis_transform())
             print("Figure created")
             # Save the figure to a PNG in memory
             img = io.BytesIO()
@@ -128,6 +169,6 @@ def index():
                 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-    #app.run(debug=True)
+    #app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=True)
 
