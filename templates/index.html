@@ -8,7 +8,7 @@
     <form method="POST">
         <div>
             <label>Chromosome:</label>
-            <input type="text" name="chromosome" />
+            <input type="text" name="chromosome" placeholder = "ex. chr1"/>
         </div>
         <div>
             <label>Position (hg38):</label>
@@ -28,6 +28,7 @@
         <div>
             <label for="output_type">Output type:</label>
             <select name="output_type" id="output_type" required>
+                <option value="RNA_SEQ">RNA_SEQ</option>
                 <option value="ATAC">ATAC</option>
                 <option value="CAGE">CAGE</option>
                 <option value="CHIP_HISTONE">CHIP_HISTONE</option>
@@ -35,7 +36,6 @@
                 <option value="CONTACT_MAPS">CONTACT_MAPS</option>
                 <option value="DNASE">DNASE</option>
                 <option value="PROCAP">PROCAP</option>
-                <option value="RNA_SEQ">RNA_SEQ</option>
                 <option value="SPLICE_SITES">SPLICE_SITES</option>
                 <option value="SPLICE_SITE_USAGE">SPLICE_SITE_USAGE</option>
                 <option value="SPLICE_JUNCTIONS">SPLICE_JUNCTIONS</option>
@@ -51,8 +51,9 @@
         <div id="more-options" style="display:none; margin-top:10px; border-left:2px solid #ccc; padding-left:10px;">
             <div>
                 <label for="ontology_terms">Ontology terms (comma-separated):</label>
-                <input type="text" name="ontology_terms" id="ontology_terms" placeholder="Default: UBERON:0000955 (brain)" />
+                <input type="text" name="ontology_terms" id="ontology_terms" placeholder="Default: UBERON:0000955 (brain)" size = "40"/>
             </div>
+            <p>For help with ontologies, visit the <a href = "https://colab.research.google.com/github/google-deepmind/alphagenome/blob/main/colabs/tissue_ontology_mapping.ipynb"> Alphagenome API </a>.</p>
             <div>
                 <label for="prediction_center">Prediction center:</label>
                 <input type="number" name="prediction_center" id="prediction_center" placeholder="Default: Variant position"/>
